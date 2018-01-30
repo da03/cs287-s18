@@ -1,172 +1,132 @@
 
 \documentclass[11pt]{article}
-
+\usepackage{amsfonts}
+\usepackage{amsmath}
 \usepackage{common}
-\title{HW0: Sample Assignment}
-\author{Alexander Rush \\ srush@seas.harvard.edu \and Sam Wiseman \\ swiseman@seas.harvard.edu }
+\usepackage{color}
+\usepackage{float}
+\newcommand{\todo}[1]{{\small\color{red}{\bf [*** Todo: #1]}}}
+\title{HW 1 Classification}
+\author{Justin Chiu \\ justinchiu@seas.harvard.edu \and Demi Guo \\ dguo@college.harvard.edu \and Yuntian Deng \\dengyuntian@seas.harvard.edu }
 \begin{document}
 
 \maketitle{}
 \section{Introduction}
+Sentiment Analysis is a fundamental natural language processing task lying at the root of many text processing systems \citep{nasukawa2003sentiment,miner2012practical,khan2015combining}. 
+This task is practically very useful in helping companies or individuals to digest people's overall favorability towards a given product or service. 
+Yet it is not that simple as it might appear: even human labelers might not agree over each other's label \citep{liu2010sentiment}; there might be multiple aspects in a sentence with different polarities \citep{lei2016rationalizing}.
 
-This note lays out our expectation for a homework submission in
-\textit{CS287: Statistical Natural Language Processing}. While you do
-not have to follow this template to the letter, we do expect that
-write-ups have a very clear structure and cover all the elements
-described in this note. With this in mind, the burden is on the
-presenter to demonstrate why deviations from the standard are
-necessary.
-
-All write-ups should include a short introduction. In this section you
-should summarize the underlying problem in high-level language and
-describe the extensions that you have decided to propose in your
-implementation. When you describe these extensions you should
-carefully cite the papers of interest. For instance, it will often be
-useful to cite the work seen in class
-\citep{murphy2012machine}. Alternatively, you can also cite papers
-inline, for instance the work of \citet{berger1996maximum}.
-
+In this paper, our goal is to approach this task with various models, from traditional machine learning methods such as Naive Bayes and Logistic Regression, to recent deep learning based methods such as Convolutional Neural Networks \citep{kim2014convolutional} and Recurrent Neural Networks \citep{hochreiter1997long}. We compare the performance of different models, as well as different processing techniques.
 
 \section{Problem Description}
-
-In general, homeworks will be specified using informal
-language. As part of the assignment, we expect you to write-out a
-definition of the problem and your model in formal language. For this
-class, we will use the following notation:
-
-\begin{itemize}
-\item $\boldb, \boldm$;  bold letters for vectors.
-\item $\boldB, \boldM$;  bold capital letters for matrices.
-\item $\mcB, \mcM$;  script-case for sets.
-\item $b_i, x_i$; lower case for scalars or indexing into vectors.
-\end{itemize}
+We are given a dataset $\mcD$ = $\{(\boldx_i, y_i)\}_{i=1}^N$, where $\boldx_i$ is a sequence of $l_i$ words: $\boldx_i = \boldx_{i}^1, \boldx_{i}^2, \cdots \boldx_i^{l_i}$ representing text of a customer review, $y_i\in \mcY$ is the corresponding label, usually a ordinal variable such as positive and negative.
+We use one-hot encoding to represent words: $\boldx_i^j\in \{0,1\}^{V}$ and 1 is taken only at the word index, where $V$ denotes vocabulary size. Our goal is to infer $P(y_i | \boldx_i)$ on a test dataset given training dataset $\mcD$.
 
 
-For instance in natural language processing, it is common to use
-discrete sets like $\mcV$ for the vocabulary of the language, or $\mcT$ for a
-tag set of the language.  We might also want one-hot vectors
-representing words. These will be of the type
-$\boldv \in \{0,1\}^{|\mcV|}$. In a note, it is crucial to define the
-types of all variables that are introduced. The problem description is the
-right place to do this.
+\section{Models}
+For brevity, we drop the subscripts of $\boldx_i$, $y_i$ and $l_i$ when no ambiguity arises.
+\subsection{Naive Bayes Unigram Classifier}
+A Naive Bayes classifier assumes that features are independent of each other given label:
+\begin{equation}
+    P(\boldx | y) = P(\boldx^1, \boldx^2, \cdots \boldx^{l} | y_i) = \prod_{j=1}^{l}P(\boldx^j | y)
+\end{equation}
 
-% NLP is also
-% full of sequences. For instance sentences, $w_1, \ldots, w_N$, where
-% here $N$ is a constant length and $w_i \in \mcV$ for all
-% $i \in \{1, \ldots N\}$. If we pretend sentences are all the same
-% length, we can have scoring function over sentences,
-% $s : \mcV^N \mapsto \reals$.  One might be defined as:
+Then we apply Bayes rule to make a prediction:
+\begin{equation}
+    P(y | \boldx) \propto P(\boldx | y) P(y)
+\end{equation}
 
-% \[ s(w_1, \ldots, w_N) = \sum_{i = 1}^N p(w_i | w_{i-2}, w_{i-1}), \]
+We use a categorical distribution with parameters $\boldsymbol{\theta}^y\in \mathbb{R}^V$ to model $P(\boldx^j | y)$:
+\begin{equation}
+    P(\boldx^j = k | y) = {\theta}^y_k
+\end{equation}
+where we abuse our notations by using $\boldx^j$ as word index.
 
-% \noindent where $p$ is the bigram probability, which we will cover later in the class.
+Similarly, we use a categorical distribution with parameters $\boldsymbol{\phi}\in \mathbb{R}^{|\mcY|}$ to model $P(y)$:
+\begin{equation}
+    P(y = k) = {\phi}_k
+\end{equation}
 
-\section{Model and Algorithms}
+The MLE solution of $\boldsymbol{\theta}$ and $\boldsymbol{\phi}$ is just the empirical frequency:
+\begin{align}
+    &\phi_k = \frac{\# \text{instances with label $k$}}{\# \text{instances}}\\
+    &\theta^y_k = \frac{\# \text{words with index $k$ and label $y$}}{\# \text{words with label $y$}}\\
+\end{align}
 
-Here you specify the model itself. This section should formally
-describe the model used to solve the task proposed in the previous
-section. This section should try to avoid introducing new vocabulary
-or notation, when possible use the notation from the previous section.
-Feel free to use the notation from class, but try to make the note
-understandable as a standalone piece of text.
+In practice, we usually add pseudocounts to both nominator and denominator to avoid issues with rare or out-of-vocabulary words, and at inference time we do calculations in log space to avoid numerical issues.
 
-This section is also a great place to include other material that
-describes the underlying structure and choices of your model, for
-instance here are some example tables and algorithms from full
-research papers:
+\subsection{Logistic Regression Classifier}
+In logistic regression, we model $P(y | \boldx)$ as:
+\begin{equation}
+    P(y|\boldx) = \sigma (\sum_{j=1}^l \boldw^T \boldx^j)
+\end{equation}
+where $\sigma(\cdot)$ denotes sigmoid function. $\boldw \in \mathbb{R}^V$ are model parameters.
+During training we maximize $\sum_{i}\log P(y_i | \boldx_i)$ w.r.t. $\boldw$ by SGD.
+
+\subsection{Bag-of-words Neural Network}
+Logistic Regression Classifier can be expressed as a 1-layer neural network. It's straightforward to introduce multiple channels for each word (hence word embeddings) and add a hidden layer to get a 2-layer neural network model.
+Since we are still summing the word embeddings thus effectively ignoring word order information, we name this model Bag-of-words Neural Network.
+
+Out model is shown in Fig.~\ref{fig:network_cbow}.
+For each word, half of the embeddings come from pretrained vectors and are fixed during training; the other half are randomly initialised and trained. 
+We maximize log likelihood with SGD to learn the parameters.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{HW1/writeup/images/network_cbow.png}
+    \caption{Bag-of-words Neural Network Architecture}
+    \label{fig:network_cbow}
+\end{figure}
 
 
+\subsection{Convolutional Neural Network}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{HW1/writeup/images/network_cnn.png}
+    \caption{CNN Architecture. Image courtesy: Kim (2014)}
+    \label{fig:network_cnn}
+\end{figure}
+We adapt the CNN model from \cite{kim2014convolutional} shown in Fig.~\ref{fig:network_cnn}.
+We use the same embedding layer as in our Bag-of-word Neural Network model, then we apply 3 convolutional filters with kernel size 3, 4 and 5, each with 100 output channels, and finally we employ max-over-time pooling, dropout, linear projection and sigmoid.
+Same to Bag-of-words Neural Network model, we maximize log likelihood with SGD to learn the parameters.
 
-\begin{itemize}
-\item diagrams of your model,
-
-  \begin{center}
-    \includegraphics[width=0.4\textwidth]{network}
-  \end{center}
-\item feature tables,
-
-  \begin{center}
-    \begin{tabular}{@{}lll@{}}
-      \toprule
-      &\multicolumn{2}{c}{Mention Features  } \\
-      & Feature & Value Set\\
-      \midrule
-      & Mention Head & $\mcV$ \\
-      & Mention First Word & $\mcV$ \\
-      & Mention Last Word & $\mcV$ \\
-      & Word Preceding Mention & $\mcV$ \\
-      & Word Following Mention & $\mcV$\\
-      & \# Words in Mention & $\{1, 2, \ldots \}$ \\
-      & Mention Type & $\mathcal{T}$ \\
-      \bottomrule
-    \end{tabular}
-  \end{center}
-
-\item pseudo-code,
-
-  \begin{algorithmic}[1]
-    \Procedure{Linearize}{$x_1\ldots x_N$, $K$, $g$}
-    \State{$B_0 \gets \langle (\langle \rangle, \{1, \ldots, N\}, 0, \boldh_0, \mathbf{0})  \rangle$}
-    \For{$m = 0, \ldots, M-1$ }
-    \For{$k = 1, \ldots, |B_m|$}
-    \For{$i \in \mcR$}
-    \State{$(y, \mcR, s, \boldh) \gets \mathrm{copy}(B_m^{(k)})$}
-    \For{word $w$ in phrase $x_i$}
-    \State{$y \gets y $ append $w$ }
-    \State{$s \gets s + \log q(w, \boldh) $ }
-    \State{$\boldh \gets \delta(w, \boldh)$}
-    \EndFor{}
-    \State{$B_{m+|w_i|} \gets B_{m+|w_i|} + (y, \mcR - i, s,   \boldh)$}
-    \State{keep top-$K$ of $B_{m+|w_i|}$ by $f(x, y) + g(\mcR)$}
-    \EndFor{}
-    \EndFor{}
-    \EndFor{}
-    \State{\Return{$B_{M}^{(k)}$}}
-    \EndProcedure{}
-  \end{algorithmic}
-
-\end{itemize}
-
+\subsection{Recurrent Neural Network}
+We also approach this task with an recurrent neural network. We use LSTM \citep{hochreiter1997long} throughout this paper. We run a forward LSTM, a backward LSTM, and concatenate their final states, project down to a scalar and apply sigmoid to model $P(y|\boldx)$. Training is again performed by maximizing log likelihood with SGD.
 
 \section{Experiments}
 
-Finally we end with the experimental section. Each assignment will make clear the main experiments and baselines that you should run. For these experiments you should present a main results table. Here we give a sample Table~\ref{tab:results}. In addition to these results you should describe in words what the table shows and the relative performance of the models.
-
-Besides the main results we will also ask you to present other results
-comparing particular aspects of the models. For instance, for word
-embedding experiments, we may ask you to show a chart of the projected
-word vectors. This experiment will lead to something like
-Figure~\ref{fig:clusters}. This should also be described within the
-body of the text itself.
-
+We run experiments on the Stanford Sentiment Treebank \citep{socher2013recursive}. Our main results are shown in Table~\ref{tab:results}. \todo{analysis}.
 
 \begin{table}[h]
 \centering
 \begin{tabular}{llr}
  \toprule
- Model &  & Acc. \\
+ Model &  & Accuracy \\
  \midrule
- \textsc{Baseline 1} & & 0.45\\
- \textsc{Baseline 2} & & 2.59 \\
- \textsc{Model 1} & & 10.59  \\
- \textsc{Model 2} & &13.42 \\
- \textsc{Model 3} & & 7.49\\
+ \textsc{NB}    & & N/A  \\
+ \textsc{LR}    & & N/A  \\
+ \textsc{CBoW}  & & N/A  \\
+ \textsc{CNN}   & & N/A  \\
+ \textsc{LSTM}  & & N/A  \\
  \bottomrule
 \end{tabular}
-\caption{\label{tab:results} Table with the main results.}
+\caption{\label{tab:results} Main result table. \textsc{NB}: Naive Bayes. \textsc{LR}: Logistic Regression. \textsc{CBoW}: Bag-of-Words Neural Network. \textsc{CNN}: Convolutional Neural Network. \textsc{LSTM}: LSTM model. The hyperparameters of each model type are selected on the validation set.}
 \end{table}
 
+We also investigate different strategies of \todo{binarization and other stuff}.
 
-\begin{figure}
-  \centering
-  \includegraphics[width=6cm]{cluster_viz}
-  \caption{\label{fig:clusters} Sample qualitative chart.}
-\end{figure}
+Lastly, we also inspect our learned model qualitatively by \todo{tensorboard visualizations of word embeddings, or learned filters?}
+%\begin{figure}
+%  \centering
+%  \includegraphics[width=6cm]{cluster_viz}
+%  \caption{\label{fig:clusters} Sample qualitative chart.}
+%\end{figure}
 
 
 \section{Conclusion}
 
-End the write-up with a very short recap of the main experiments and the main results. Describe any challenges you may have faced, and what could have been improved in the model.
+In conclusion, we compare different approaches to the classical sentiment analysis problem.
+
+\todo{conclude}
 
 \bibliographystyle{apalike}
 \bibliography{writeup}
