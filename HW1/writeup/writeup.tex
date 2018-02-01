@@ -12,14 +12,14 @@
 
 \maketitle{}
 \section{Introduction}
-Sentiment Analysis is a fundamental natural language processing task lying at the root of many text processing systems \citep{nasukawa2003sentiment,miner2012practical,khan2015combining}. 
-This task is practically very useful in helping companies or individuals to digest people's overall favorability towards a given product or service. 
-Yet it is not that simple as it might appear: even human labelers might not agree over each other's label \citep{liu2010sentiment}; there might be multiple aspects in a sentence with different polarities \citep{lei2016rationalizing}.
+Sentiment Analysis is a natural language processing task that lies at the root of many text processing systems \citep{nasukawa2003sentiment,miner2012practical,khan2015combining}. 
+This task is practically very useful for helping companies or individuals to digest people's overall favorability towards a given product or service. 
+Yet it is not as simple as it might appear: even human labelers might not agree with each others' labelings \citep{liu2010sentiment}; there might be multiple aspects in a sentence with different polarities \citep{lei2016rationalizing}.
 
-In this paper, our goal is to approach this task with various models, from traditional machine learning methods such as Naive Bayes and Logistic Regression, to recent deep learning based methods such as Convolutional Neural Networks \citep{kim2014convolutional} and Recurrent Neural Networks \citep{hochreiter1997long}. We compare the performance of different models, as well as different processing techniques.
+In this paper, our goal is to approach this task with various models, from traditional machine learning methods such as Naive Bayes and Logistic Regression, to recent deep learning based methods such as Convolutional Neural Networks \citep{kim2014convolutional} and Recurrent Neural Networks \citep{hochreiter1997long}. We compare the performance of different models, as well as different processing techniques. Finally, we ensemble multiple models together to increase performance.
 
 \section{Problem Description}
-We are given a dataset $\mcD$ = $\{(\boldx_i, y_i)\}_{i=1}^N$, where $\boldx_i$ is a sequence of $l_i$ words: $\boldx_i = \boldx_{i}^1, \boldx_{i}^2, \cdots \boldx_i^{l_i}$ representing text of a customer review, $y_i\in \mcY$ is the corresponding label, usually a ordinal variable such as positive and negative.
+We are given a dataset $\mcD$ = $\{(\boldx_i, y_i)\}_{i=1}^N$, where $\boldx_i$ is a sequence of $l_i$ words: $\boldx_i = \boldx_{i}^1, \boldx_{i}^2, \cdots \boldx_i^{l_i}$ representing text of a customer review, $y_i\in \mcY$ is the corresponding label, usually an ordinal variable such as positive and negative.
 We use one-hot encoding to represent words: $\boldx_i^j\in \{0,1\}^{V}$ and 1 is taken only at the word index, where $V$ denotes vocabulary size. Our goal is to infer $P(y_i | \boldx_i)$ on a test dataset given training dataset $\mcD$.
 
 
@@ -27,39 +27,39 @@ We use one-hot encoding to represent words: $\boldx_i^j\in \{0,1\}^{V}$ and 1 is
 For brevity, we drop the subscripts of $\boldx_i$, $y_i$ and $l_i$ when no ambiguity arises.
 \subsection{Naive Bayes Unigram Classifier}
 A Naive Bayes classifier assumes that features are independent of each other given label:
-\begin{equation}
+\begin{equation*}
     P(\boldx | y) = P(\boldx^1, \boldx^2, \cdots \boldx^{l} | y_i) = \prod_{j=1}^{l}P(\boldx^j | y)
-\end{equation}
+\end{equation*}
 
 Then we apply Bayes rule to make a prediction:
-\begin{equation}
+\begin{equation*}
     P(y | \boldx) \propto P(\boldx | y) P(y)
-\end{equation}
+\end{equation*}
 
 We use a categorical distribution with parameters $\boldsymbol{\theta}^y\in \mathbb{R}^V$ to model $P(\boldx^j | y)$:
-\begin{equation}
+\begin{equation*}
     P(\boldx^j = k | y) = {\theta}^y_k
-\end{equation}
+\end{equation*}
 where we abuse our notations by using $\boldx^j$ as word index.
 
 Similarly, we use a categorical distribution with parameters $\boldsymbol{\phi}\in \mathbb{R}^{|\mcY|}$ to model $P(y)$:
-\begin{equation}
+\begin{equation*}
     P(y = k) = {\phi}_k
-\end{equation}
+\end{equation*}
 
 The MLE solution of $\boldsymbol{\theta}$ and $\boldsymbol{\phi}$ is just the empirical frequency:
-\begin{align}
+\begin{align*}
     &\phi_k = \frac{\# \text{instances with label $k$}}{\# \text{instances}}\\
     &\theta^y_k = \frac{\# \text{words with index $k$ and label $y$}}{\# \text{words with label $y$}}\\
-\end{align}
+\end{align*}
 
 In practice, we usually add pseudocounts to both nominator and denominator to avoid issues with rare or out-of-vocabulary words, and at inference time we do calculations in log space to avoid numerical issues.
 
 \subsection{Logistic Regression Classifier}
 In logistic regression, we model $P(y | \boldx)$ as:
-\begin{equation}
+\begin{equation*}
     P(y|\boldx) = \sigma (\sum_{j=1}^l \boldw^T \boldx^j)
-\end{equation}
+\end{equation*}
 where $\sigma(\cdot)$ denotes sigmoid function. $\boldw \in \mathbb{R}^V$ are model parameters.
 During training we maximize $\sum_{i}\log P(y_i | \boldx_i)$ w.r.t. $\boldw$ by SGD.
 
@@ -86,15 +86,36 @@ We maximize log likelihood with SGD to learn the parameters.
     \label{fig:network_cnn}
 \end{figure}
 We adapt the CNN model from \cite{kim2014convolutional} shown in Fig.~\ref{fig:network_cnn}.
-We use the same embedding layer as in our Bag-of-word Neural Network model, then we apply 3 convolutional filters with kernel size 3, 4 and 5, each with 100 output channels, and finally we employ max-over-time pooling, dropout, linear projection and sigmoid.
+We use the same embedding layer as our Bag-of-word Neural Network model, then we apply 3 convolutional filters with kernel sizes 3, 4 and 5, each with 100 output channels, and finally we employ max-over-time pooling, dropout, linear projection and sigmoid.
 Same to Bag-of-words Neural Network model, we maximize log likelihood with SGD to learn the parameters.
 
 \subsection{Recurrent Neural Network}
-We also approach this task with an recurrent neural network. We use LSTM \citep{hochreiter1997long} throughout this paper. We run a forward LSTM, a backward LSTM, and concatenate their final states, project down to a scalar and apply sigmoid to model $P(y|\boldx)$. Training is again performed by maximizing log likelihood with SGD.
+We also approach this task with an recurrent neural network.
+We use LSTM \citep{hochreiter1997long} throughout this paper.
+We run a forward LSTM, a backward LSTM, and concatenate their final states, project down to a scalar and apply sigmoid to model $P(y|\boldx)$.
+Training is again performed by maximizing log likelihood with SGD.
+
+\subsection{Generative Neural Models}
+Since the dataset seems to be small enough for generative models
+to outperform discrminative methods, 
+we use two generative neural models for the text $x$ and label $y$:
+we learn $p(x\given y)$ as well as $p(y,x)$ directly with LSTMs.
+These two models treat the example as a string and perform 
+language modeling. To be precise, the label is treated as yet
+another word, is given an embedding, and appended to either
+the front or the back of the sentence.
+For the first case the input string would be
+$\langle y, x_0,\ldots \rangle$, and the latter case would be
+$\langle x_0, \ldots, y\rangle$. Note that this differs from all the previous models except Naive Bayes in that it does not perform temporal pooling.
+
+We do not use pretrained embeddings with these models since there was no performance gain. We do tie the input and output embeddings and apply dropout after the single LSTM layer.
 
 \section{Experiments}
 
-We run experiments on the Stanford Sentiment Treebank \citep{socher2013recursive}. Our main results are shown in Table~\ref{tab:results}. \todo{analysis}.
+We run experiments on the Stanford Sentiment Treebank \citep{socher2013recursive}.
+Our main results are shown in Table~\ref{tab:results}. 
+To our surprise, Naive Bayes achieves the best performance, though other methods give comparable accuracies.
+We suspect that might due to the fact that the dataset is relatively small, and Naive Bayes has a stronger generalization ability due to its assumptions.
 
 \begin{table}[h]
 \centering
@@ -102,19 +123,68 @@ We run experiments on the Stanford Sentiment Treebank \citep{socher2013recursive
  \toprule
  Model &  & Accuracy \\
  \midrule
- \textsc{NB}    & & N/A  \\
- \textsc{LR}    & & N/A  \\
- \textsc{CBoW}  & & N/A  \\
- \textsc{CNN}   & & N/A  \\
- \textsc{LSTM}  & & N/A  \\
+ {\textsc{NB}}    & & {79.7\%}  \\
+ \textsc{LR}    & & 79.7\%  \\
+ \textsc{CBoW}  & & 78.7\%  \\
+ \textsc{CNN}   & & 78.1\%  \\
+ \textsc{LSTM}  & & 77.3\%  \\
+ \textsc{LSTM $p(x|y)$}  & & 78.6\%  \\
+ \textsc{LSTM $p(x,y)$}  & & 78.8\%  \\
  \bottomrule
 \end{tabular}
-\caption{\label{tab:results} Main result table. \textsc{NB}: Naive Bayes. \textsc{LR}: Logistic Regression. \textsc{CBoW}: Bag-of-Words Neural Network. \textsc{CNN}: Convolutional Neural Network. \textsc{LSTM}: LSTM model. The hyperparameters of each model type are selected on the validation set.}
+\caption{\label{tab:results} Validation accuracy of different models. \textsc{NB}: Naive Bayes. \textsc{LR}: Logistic Regression. \textsc{CBoW}: Bag-of-Words Neural Network. \textsc{CNN}: Convolutional Neural Network. \textsc{LSTM}: LSTM model and its generative variants. The hyperparameters of each model type are selected on the validation set.}
 \end{table}
 
-We also investigate different strategies of \todo{binarization and other stuff}.
+We also investigate alternative strategies of preprocessing techniques following \cite{wang2012baselines}.
+Specifically, we investigate the effect of binarizing word counts, i.e. we use $\mathbb{1}(x^j>0)$ instead. It is well known that binarization improves the performance of \textsc{NB}, and we present the effect of binarization in Tab. \ref{tab:ablation}. Unfortunately, binarization does nt improve accuracy.
 
-Lastly, we also inspect our learned model qualitatively by \todo{tensorboard visualizations of word embeddings, or learned filters?}
+\begin{table}[h]
+\centering
+\begin{tabular}{lcr}
+ \toprule
+ Model                  & Binarization  & Accuracy \\
+ \midrule
+ \multirow{2}{*}{NB}    & Yes           & 79.6\%      \\
+                        & No            & 79.7\%      \\
+ \midrule
+ \multirow{2}{*}{LR}    & Yes           & 79.7\%      \\
+                        & No            & 79.5\%      \\
+ \midrule
+ \multirow{2}{*}{CBoW}  & Yes           & 78.3\%      \\
+                        & No            & 78.7\%      \\
+ 
+ \bottomrule
+\end{tabular}
+\caption{\label{tab:ablation} Effect of binarization.}
+\end{table}
+
+%\subsection{Ensemble}
+Since our models have different inductive biases, we tried to ensemble our best NB, LR, CBoW, CNN, LSTM  models. We combine individual classifiers by taking a simple majority vote of their decisions. For each sentence, we classify it as "negative" sentiment if the majority of classifiers classify it as "negative". Our best ensemble achieved 83\% accuracy on Kaggle.
+
+We considered a following list of hyperparameters to tune:
+\begin{table}[h]
+\centering
+\begin{tabular}{lcr}
+ \toprule
+  Group & Hyperparameter & Values         \\
+ \midrule
+  \multirow{2}{*}{Regularization} & Weight Decay & 1e-3, 1e-4, 5e-4 \\
+                                  & Dropout & 0, 0.5, 0.9, 0.95 \\
+  \midrule
+  \multirow{5}{*}{Optimization} & Optimizer & SGD, Adam, Adadelta, Adamax   \\
+           & Initial Learning Rate & 1, 0.1, 0.01 \\
+           & Learning Rate Decay & 0.5, 0.9 \\
+           & Gradient Clipping & 0.1 \\
+           & Momentum & 0.9  \\
+  \midrule
+  \multirow{2}{*}{Model} & Embedding & Static, Static + Dynamic, Dynamic\\
+                         & RNN Size & 1000 \\ 
+ \bottomrule
+\end{tabular}
+\caption{\label{tab:hyper} Hyperparameter search space.}
+\end{table}
+
+%Lastly, we also inspect our learned model qualitatively by \todo{tensorboard visualizations of word embeddings, or learned filters?}
 %\begin{figure}
 %  \centering
 %  \includegraphics[width=6cm]{cluster_viz}
@@ -124,10 +194,10 @@ Lastly, we also inspect our learned model qualitatively by \todo{tensorboard vis
 
 \section{Conclusion}
 
-In conclusion, we compare different approaches to the classical sentiment analysis problem.
+In conclusion, we compare different approaches to the classical sentiment analysis problem. Naive Bayes outperforms other models by a slight margin, indicating that generative models might fit small datasets better.
 
-\todo{conclude}
-
+%\todo{conclude}
+\newpage
 \bibliographystyle{apalike}
 \bibliography{writeup}
 
